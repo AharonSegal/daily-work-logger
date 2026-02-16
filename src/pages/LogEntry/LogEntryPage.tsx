@@ -67,6 +67,7 @@ const Actions = styled.div`
 `;
 
 const SubmitBar = styled.div`
+  margin-top: ${spacing.lg};
   ${media.mobile} {
     position: fixed;
     bottom: 60px;
@@ -76,6 +77,7 @@ const SubmitBar = styled.div`
     background: ${colors.bg.secondary};
     border-top: 1px solid ${colors.border.default};
     z-index: 50;
+    margin-top: 0;
   }
 `;
 

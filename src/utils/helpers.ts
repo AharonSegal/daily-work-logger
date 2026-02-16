@@ -84,6 +84,40 @@ export function entriesToCSV(entries: Entry[]): string {
   return [headers.join(','), ...rows.map((r) => r.map(escape).join(','))].join('\n');
 }
 
+export function capitalize(str: string): string {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+export function findSimilar(input: string, existing: string[]): string | null {
+  const lower = input.toLowerCase();
+  for (const item of existing) {
+    const itemLower = item.toLowerCase();
+    // Exact match (case-insensitive)
+    if (itemLower === lower) return item;
+    // One contains the other
+    if (itemLower.includes(lower) || lower.includes(itemLower)) return item;
+    // Levenshtein distance <= 2 for short strings
+    if (levenshtein(lower, itemLower) <= 2 && Math.min(lower.length, itemLower.length) > 2) return item;
+  }
+  return null;
+}
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
 export function downloadFile(content: string, filename: string, mimeType = 'text/plain') {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);

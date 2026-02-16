@@ -4,9 +4,10 @@ import { ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import type { TechSelection } from '../../../utils/types';
 import { GROUP_LABELS, GROUP_ORDER } from '../../../utils/defaultSchema';
-import { SearchInput, Checkbox, Chip, Button, Input } from '../../../ui';
+import { SearchInput, Checkbox, Chip, Button, Input, Modal } from '../../../ui';
 import { colors, spacing, typography, transitions } from '../../../theme';
 import { media } from '../../../theme/breakpoints';
+import { capitalize, findSimilar } from '../../../utils/helpers';
 
 interface Props {
   selected: TechSelection[];
@@ -84,6 +85,7 @@ export default function TechSelector({ selected, onChange }: Props) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [addingSub, setAddingSub] = useState<string | null>(null);
   const [newSub, setNewSub] = useState('');
+  const [similarMatch, setSimilarMatch] = useState<{ input: string; match: string; techName: string } | null>(null);
 
   const grouped = useMemo(() => {
     const techsByGroup: Record<string, typeof state.schema.technologies> = {};
@@ -118,26 +120,76 @@ export default function TechSelector({ selected, onChange }: Props) {
 
   const clearAll = () => onChange([]);
 
-  const handleAddSub = async (techName: string) => {
-    const trimmed = newSub.trim();
-    if (!trimmed) return;
+  const doAddSub = async (techName: string, name: string) => {
     const updatedTechs = state.schema.technologies.map((t) =>
-      t.name === techName && !t.subTechs.includes(trimmed)
-        ? { ...t, subTechs: [...t.subTechs, trimmed] }
+      t.name === techName && !t.subTechs.includes(name)
+        ? { ...t, subTechs: [...t.subTechs, name] }
         : t
     );
     await updateSchema({ ...state.schema, technologies: updatedTechs });
-    toggleSub(techName, trimmed);
+    toggleSub(techName, name);
     setNewSub('');
     setAddingSub(null);
+  };
+
+  const handleAddSub = async (techName: string) => {
+    const formatted = capitalize(newSub.trim());
+    if (!formatted) return;
+    const schemaTech = state.schema.technologies.find((t) => t.name === techName);
+    if (!schemaTech) return;
+    if (schemaTech.subTechs.some((s) => s.toLowerCase() === formatted.toLowerCase())) return;
+    const similar = findSimilar(formatted, schemaTech.subTechs);
+    if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
+      setSimilarMatch({ input: formatted, match: similar, techName });
+      return;
+    }
+    doAddSub(techName, formatted);
   };
 
   const toggleGroup = (g: string) => {
     setCollapsed((prev) => ({ ...prev, [g]: !prev[g] }));
   };
 
+  const SimilarText = styled.p`
+    color: ${colors.text.secondary};
+    font-size: ${typography.size.md};
+    line-height: 1.6;
+  `;
+  const SimilarName = styled.span`
+    color: ${colors.accent.primary};
+    font-weight: ${typography.weight.semibold};
+  `;
+
   return (
     <Section>
+      <Modal
+        open={!!similarMatch}
+        onClose={() => setSimilarMatch(null)}
+        title="Similar sub-tech found"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => {
+              if (similarMatch) toggleSub(similarMatch.techName, similarMatch.match);
+              setSimilarMatch(null);
+              setNewSub('');
+              setAddingSub(null);
+            }}>
+              Use "{similarMatch?.match}"
+            </Button>
+            <Button onClick={() => {
+              if (similarMatch) doAddSub(similarMatch.techName, similarMatch.input);
+              setSimilarMatch(null);
+            }}>
+              Create "{similarMatch?.input}" anyway
+            </Button>
+          </>
+        }
+      >
+        <SimilarText>
+          You're adding <SimilarName>"{similarMatch?.input}"</SimilarName>, but a similar sub-tech already exists: <SimilarName>"{similarMatch?.match}"</SimilarName>
+          <br />Do you want to use the existing one or create a new one?
+        </SimilarText>
+      </Modal>
       <TopRow>
         <SearchInput value={search} onChange={setSearch} placeholder="Search technologies..." />
         {selected.length > 0 && (

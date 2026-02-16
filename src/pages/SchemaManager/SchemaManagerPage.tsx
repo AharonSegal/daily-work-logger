@@ -6,6 +6,7 @@ import useToast from '../../hooks/useToast';
 import defaultSchema, { GROUP_LABELS, GROUP_ORDER } from '../../utils/defaultSchema';
 import { Card, CardHeader, CardTitle, Button, Input, Chip, Modal, Toast, SearchInput, EmptyState } from '../../ui';
 import { colors, spacing, typography, transitions } from '../../theme';
+import { capitalize, findSimilar } from '../../utils/helpers';
 
 const Section = styled.div`
   margin-bottom: ${spacing.lg};
@@ -108,15 +109,27 @@ export default function SchemaManagerPage() {
   const [newSub, setNewSub] = useState('');
 
   const [confirmModal, setConfirmModal] = useState<{ type: string; name?: string } | null>(null);
+  const [similarModal, setSimilarModal] = useState<{ type: 'project' | 'category' | 'tech' | 'subTech'; input: string; match: string; techName?: string } | null>(null);
 
   // --- Projects ---
-  const addProject = () => {
-    const t = newProject.trim();
-    if (!t || schema.projects.includes(t)) return;
-    updateSchema({ ...schema, projects: [...schema.projects, t] });
+  const doAddProject = (name: string) => {
+    if (schema.projects.some((p) => p.toLowerCase() === name.toLowerCase())) return;
+    updateSchema({ ...schema, projects: [...schema.projects, name] });
     setNewProject('');
     setAddingProject(false);
-    addToast('success', `Project "${t}" added`);
+    addToast('success', `Project "${name}" added`);
+  };
+
+  const addProject = () => {
+    const formatted = capitalize(newProject.trim());
+    if (!formatted) return;
+    if (schema.projects.some((p) => p.toLowerCase() === formatted.toLowerCase())) return;
+    const similar = findSimilar(formatted, schema.projects);
+    if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
+      setSimilarModal({ type: 'project', input: formatted, match: similar });
+      return;
+    }
+    doAddProject(formatted);
   };
 
   const removeProject = (name: string) => {
@@ -126,13 +139,24 @@ export default function SchemaManagerPage() {
   };
 
   // --- Categories ---
-  const addCategory = () => {
-    const t = newCat.trim().toLowerCase();
-    if (!t || schema.categories.includes(t)) return;
-    updateSchema({ ...schema, categories: [...schema.categories, t] });
+  const doAddCategory = (name: string) => {
+    if (schema.categories.some((c) => c.toLowerCase() === name.toLowerCase())) return;
+    updateSchema({ ...schema, categories: [...schema.categories, name] });
     setNewCat('');
     setAddingCat(false);
-    addToast('success', `Category "${t}" added`);
+    addToast('success', `Category "${name}" added`);
+  };
+
+  const addCategory = () => {
+    const formatted = capitalize(newCat.trim());
+    if (!formatted) return;
+    if (schema.categories.some((c) => c.toLowerCase() === formatted.toLowerCase())) return;
+    const similar = findSimilar(formatted, schema.categories);
+    if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
+      setSimilarModal({ type: 'category', input: formatted, match: similar });
+      return;
+    }
+    doAddCategory(formatted);
   };
 
   const removeCategory = (name: string) => {
@@ -142,13 +166,25 @@ export default function SchemaManagerPage() {
   };
 
   // --- Technologies ---
-  const addTech = () => {
-    const t = newTechName.trim();
-    if (!t || schema.technologies.some((x) => x.name === t)) return;
-    updateSchema({ ...schema, technologies: [...schema.technologies, { name: t, group: newTechGroup, subTechs: [] }] });
+  const doAddTech = (name: string) => {
+    if (schema.technologies.some((x) => x.name.toLowerCase() === name.toLowerCase())) return;
+    updateSchema({ ...schema, technologies: [...schema.technologies, { name, group: newTechGroup, subTechs: [] }] });
     setNewTechName('');
     setAddingTech(false);
-    addToast('success', `Technology "${t}" added`);
+    addToast('success', `Technology "${name}" added`);
+  };
+
+  const addTech = () => {
+    const formatted = capitalize(newTechName.trim());
+    if (!formatted) return;
+    if (schema.technologies.some((x) => x.name.toLowerCase() === formatted.toLowerCase())) return;
+    const techNames = schema.technologies.map((t) => t.name);
+    const similar = findSimilar(formatted, techNames);
+    if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
+      setSimilarModal({ type: 'tech', input: formatted, match: similar });
+      return;
+    }
+    doAddTech(formatted);
   };
 
   const removeTech = (name: string) => {
@@ -157,19 +193,32 @@ export default function SchemaManagerPage() {
     setConfirmModal(null);
   };
 
-  const addSubTech = (techName: string) => {
-    const t = newSub.trim();
-    if (!t) return;
+  const doAddSubTech = (techName: string, name: string) => {
     updateSchema({
       ...schema,
       technologies: schema.technologies.map((tech) =>
-        tech.name === techName && !tech.subTechs.includes(t)
-          ? { ...tech, subTechs: [...tech.subTechs, t] }
+        tech.name === techName && !tech.subTechs.some((s) => s.toLowerCase() === name.toLowerCase())
+          ? { ...tech, subTechs: [...tech.subTechs, name] }
           : tech
       ),
     });
     setNewSub('');
     setAddingSubFor(null);
+    addToast('success', `Sub-tech "${name}" added to ${techName}`);
+  };
+
+  const addSubTech = (techName: string) => {
+    const formatted = capitalize(newSub.trim());
+    if (!formatted) return;
+    const tech = schema.technologies.find((t) => t.name === techName);
+    if (!tech) return;
+    if (tech.subTechs.some((s) => s.toLowerCase() === formatted.toLowerCase())) return;
+    const similar = findSimilar(formatted, tech.subTechs);
+    if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
+      setSimilarModal({ type: 'subTech', input: formatted, match: similar, techName });
+      return;
+    }
+    doAddSubTech(techName, formatted);
   };
 
   const removeSubTech = (techName: string, sub: string) => {
@@ -239,6 +288,39 @@ export default function SchemaManagerPage() {
               This item is used in existing entries.
             </span>
           )}
+        </p>
+      </Modal>
+
+      {/* Similar item modal */}
+      <Modal
+        open={!!similarModal}
+        onClose={() => setSimilarModal(null)}
+        title={`Similar ${similarModal?.type === 'subTech' ? 'sub-tech' : similarModal?.type} found`}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => {
+              setSimilarModal(null);
+              setNewProject(''); setNewCat(''); setNewTechName(''); setNewSub('');
+              setAddingProject(false); setAddingCat(false); setAddingTech(false); setAddingSubFor(null);
+            }}>
+              Use "{similarModal?.match}"
+            </Button>
+            <Button onClick={() => {
+              if (!similarModal) return;
+              if (similarModal.type === 'project') doAddProject(similarModal.input);
+              else if (similarModal.type === 'category') doAddCategory(similarModal.input);
+              else if (similarModal.type === 'tech') doAddTech(similarModal.input);
+              else if (similarModal.type === 'subTech' && similarModal.techName) doAddSubTech(similarModal.techName, similarModal.input);
+              setSimilarModal(null);
+            }}>
+              Create "{similarModal?.input}" anyway
+            </Button>
+          </>
+        }
+      >
+        <p style={{ color: colors.text.secondary, fontSize: typography.size.md, lineHeight: 1.6 }}>
+          You're adding <span style={{ color: colors.accent.primary, fontWeight: typography.weight.semibold }}>"{similarModal?.input}"</span>, but a similar item already exists: <span style={{ color: colors.accent.primary, fontWeight: typography.weight.semibold }}>"{similarModal?.match}"</span>
+          <br />Do you want to use the existing one or create a new one?
         </p>
       </Modal>
 
