@@ -15,15 +15,16 @@ let db: Firestore | null = null;
 
 export function initFirebase(): Firestore | null {
   if (!firebaseConfig.apiKey) {
-    console.warn('Firebase not configured — using localStorage fallback');
+    console.warn('[Firebase] Not configured — using localStorage fallback');
     return null;
   }
   try {
     app = initializeApp(firebaseConfig);
     db = getFirestore(app);
+    console.log('[Firebase] Connected to project:', firebaseConfig.projectId);
     return db;
   } catch (err) {
-    console.error('Firebase init failed:', err);
+    console.error('[Firebase] Init failed:', err);
     return null;
   }
 }

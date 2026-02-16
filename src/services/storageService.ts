@@ -31,9 +31,13 @@ async function fbGet<T>(key: string): Promise<T | null> {
 async function fbSet(key: string, data: unknown) {
   localSet(key, data);
   const db = getDb();
-  if (!db) return;
-  try { await setDoc(doc(db, COLLECTION, key), { value: data, updatedAt: new Date().toISOString() }); }
-  catch (err) { console.error(`Firebase write [${key}] failed:`, err); }
+  if (!db) { console.warn(`[Storage] No Firebase DB — wrote "${key}" to localStorage only`); return; }
+  try {
+    await setDoc(doc(db, COLLECTION, key), { value: data, updatedAt: new Date().toISOString() });
+    console.log(`[Firebase] Wrote "${key}" to Firestore`);
+  } catch (err) {
+    console.error(`[Firebase] Write "${key}" FAILED:`, err);
+  }
 }
 
 export const getEntries = () => fbGet<Entry[]>('entries').then((r) => r ?? []);
