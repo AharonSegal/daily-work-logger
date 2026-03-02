@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react';
 import styled from '@emotion/styled';
-import { PenLine, BarChart3, Settings } from 'lucide-react';
+import { PenLine, BarChart3, Settings, List } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { colors, spacing, typography, transitions, shadows } from '../theme';
+import { colors, spacing, typography, transitions } from '../theme';
 import { media } from '../theme/breakpoints';
 import type { PageName } from '../utils/types';
 
 const navItems: { page: PageName; label: string; icon: typeof PenLine }[] = [
   { page: 'log', label: 'Log Entry', icon: PenLine },
+  { page: 'logs', label: 'All Logs', icon: List },
   { page: 'dashboard', label: 'Dashboard', icon: BarChart3 },
   { page: 'schema', label: 'Schema', icon: Settings },
 ];
@@ -83,14 +84,13 @@ const NavBtn = styled.button<{ active: boolean }>`
 
   svg { width: 18px; height: 18px; }
 
-  /* Mobile: column layout, icon + label stacked */
   ${media.mobile} {
     flex-direction: column;
     gap: 2px;
-    padding: ${spacing.xxs} ${spacing.sm};
+    padding: ${spacing.xxs} ${spacing.xs};
     font-size: ${typography.size.xs};
-    min-width: 64px;
-    svg { width: 20px; height: 20px; }
+    min-width: 56px;
+    svg { width: 18px; height: 18px; }
   }
 `;
 
@@ -100,7 +100,7 @@ const Content = styled.main`
   max-width: 960px;
   margin: 0 auto;
   padding: ${spacing.lg};
-  padding-bottom: 100px; /* space for bottom nav on mobile */
+  padding-bottom: 100px;
 
   ${media.aboveMobile} {
     padding-bottom: ${spacing.lg};

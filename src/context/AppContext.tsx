@@ -46,6 +46,8 @@ interface AppContextValue {
   state: AppState;
   dispatch: React.Dispatch<Action>;
   addEntries: (newEntries: Entry[]) => Promise<void>;
+  updateEntry: (entry: Entry) => Promise<void>;
+  deleteEntry: (id: string) => Promise<void>;
   updateSchema: (schema: Schema) => Promise<void>;
   updatePreferences: (prefs: Preferences) => Promise<void>;
   clearData: () => Promise<void>;
@@ -69,7 +71,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           preferences,
         },
       });
-      // If schema didn't exist, persist the default
       if (!schema) await storage.setSchema(defaultSchema);
     }
     init();
@@ -77,6 +78,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addEntries = useCallback(async (newEntries: Entry[]) => {
     const updated = [...state.entries, ...newEntries];
+    dispatch({ type: 'SET_ENTRIES', payload: updated });
+    await storage.setEntries(updated);
+  }, [state.entries]);
+
+  const updateEntry = useCallback(async (entry: Entry) => {
+    const updated = state.entries.map((e) => (e.id === entry.id ? entry : e));
+    dispatch({ type: 'SET_ENTRIES', payload: updated });
+    await storage.setEntries(updated);
+  }, [state.entries]);
+
+  const deleteEntry = useCallback(async (id: string) => {
+    const updated = state.entries.filter((e) => e.id !== id);
     dispatch({ type: 'SET_ENTRIES', payload: updated });
     await storage.setEntries(updated);
   }, [state.entries]);
@@ -101,7 +114,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AppContext.Provider value={{ state, dispatch, addEntries, updateSchema, updatePreferences, clearData, setPage }}>
+    <AppContext.Provider value={{ state, dispatch, addEntries, updateEntry, deleteEntry, updateSchema, updatePreferences, clearData, setPage }}>
       {children}
     </AppContext.Provider>
   );

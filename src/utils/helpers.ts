@@ -67,7 +67,7 @@ export function countBy<T>(arr: T[], key: keyof T | ((item: T) => string)): { na
 }
 
 export function entriesToCSV(entries: Entry[]): string {
-  const headers = ['date', 'dayNumber', 'project', 'categories', 'title', 'description', 'technologies', 'teamType', 'createdAt'];
+  const headers = ['date', 'dayNumber', 'project', 'categories', 'codingLanguages', 'title', 'description', 'technologies', 'teamType', 'teamSize', 'createdAt'];
   const escape = (val: unknown) => {
     const str = String(val ?? '');
     return (str.includes(',') || str.includes('"') || str.includes('\n')) ? `"${str.replace(/"/g, '""')}"` : str;
@@ -76,9 +76,10 @@ export function entriesToCSV(entries: Entry[]): string {
   const rows = entries.map((e) => [
     e.date, e.dayNumber, e.project,
     (e.categories || []).join('; '),
+    (e.codingLanguages || []).join('; '),
     e.title, e.description || '',
     (e.technologies || []).map((t) => `${t.tech}${t.subTechs?.length ? ` (${t.subTechs.join(', ')})` : ''}`).join(' | '),
-    e.teamType, e.createdAt,
+    e.teamType, e.teamSize ?? '', e.createdAt,
   ]);
 
   return [headers.join(','), ...rows.map((r) => r.map(escape).join(','))].join('\n');

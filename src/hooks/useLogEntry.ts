@@ -11,6 +11,8 @@ function createEmptyTask(): TaskFormState {
     description: '',
     technologies: [],
     teamType: 'solo',
+    teamSize: undefined,
+    codingLanguages: [],
   };
 }
 
@@ -23,6 +25,8 @@ function applyDefaults(prefs: Preferences | null): TaskFormState {
     description: '',
     technologies: prefs.lastTechnologies || [],
     teamType: prefs.lastTeamType || 'solo',
+    teamSize: prefs.lastTeamSize,
+    codingLanguages: prefs.lastCodingLanguages || [],
   };
 }
 
@@ -36,7 +40,6 @@ export default function useLogEntry() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Apply smart defaults when preferences load
   useEffect(() => {
     if (state.preferences) {
       setProject(state.preferences.lastProject || state.schema.projects[0] || '');
@@ -95,6 +98,8 @@ export default function useLogEntry() {
         description: t.description.trim(),
         technologies: t.technologies,
         teamType: t.teamType,
+        teamSize: t.teamType === 'team' ? t.teamSize : undefined,
+        codingLanguages: t.codingLanguages || [],
         createdAt: new Date().toISOString(),
       }));
 
@@ -106,10 +111,11 @@ export default function useLogEntry() {
         lastTechnologies: tasks[0]?.technologies || [],
         lastTeamType: tasks[0]?.teamType || 'solo',
         lastTaskCount: tasks.length,
+        lastCodingLanguages: tasks[0]?.codingLanguages || [],
+        lastTeamSize: tasks[0]?.teamType === 'team' ? tasks[0]?.teamSize : undefined,
       };
       await updatePreferences(prefs);
 
-      // Reset form
       setTasks([applyDefaults(prefs)]);
       setErrors({});
       return true;

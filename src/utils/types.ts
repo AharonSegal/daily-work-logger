@@ -13,6 +13,8 @@ export interface Entry {
   description: string;
   technologies: TechSelection[];
   teamType: 'solo' | 'team';
+  teamSize?: number;
+  codingLanguages?: string[];
   createdAt: string;
 }
 
@@ -34,6 +36,8 @@ export interface Preferences {
   lastTechnologies: TechSelection[];
   lastTeamType: 'solo' | 'team';
   lastTaskCount: number;
+  lastCodingLanguages?: string[];
+  lastTeamSize?: number;
 }
 
 export interface TaskFormState {
@@ -43,6 +47,8 @@ export interface TaskFormState {
   description: string;
   technologies: TechSelection[];
   teamType: 'solo' | 'team';
+  teamSize?: number;
+  codingLanguages?: string[];
 }
 
-export type PageName = 'log' | 'dashboard' | 'schema';
+export type PageName = 'log' | 'dashboard' | 'schema' | 'logs';

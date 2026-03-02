@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react';
 import styled from '@emotion/styled';
-import { ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, X, Check } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import type { TechSelection } from '../../../utils/types';
 import { GROUP_LABELS, GROUP_ORDER } from '../../../utils/defaultSchema';
-import { SearchInput, Checkbox, Chip, Button, Input, Modal } from '../../../ui';
+import { SearchInput, Chip, Button, Input, Modal } from '../../../ui';
 import { colors, spacing, typography, transitions } from '../../../theme';
-import { media } from '../../../theme/breakpoints';
 import { capitalize, findSimilar } from '../../../utils/helpers';
 
 interface Props {
@@ -35,25 +34,64 @@ const TopRow = styled.div`
 const GroupHeader = styled.button`
   display: flex;
   align-items: center;
-  gap: ${spacing.xs};
-  background: none;
-  border: none;
+  justify-content: space-between;
+  width: 100%;
+  background: ${colors.bg.elevated};
+  border: 1px solid ${colors.border.default};
+  border-radius: 8px;
   cursor: pointer;
   color: ${colors.text.secondary};
   font-size: ${typography.size.xs};
   font-weight: ${typography.weight.semibold};
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  padding: ${spacing.xs} 0;
-  transition: color ${transitions.fast};
-  &:hover { color: ${colors.text.primary}; }
-  svg { width: 14px; height: 14px; }
+  padding: ${spacing.xs} ${spacing.sm};
+  transition: all ${transitions.fast};
+  &:hover { color: ${colors.text.primary}; border-color: ${colors.border.light}; }
+  svg { width: 14px; height: 14px; flex-shrink: 0; }
+`;
+
+const GroupHeaderLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${spacing.xs};
+`;
+
+const GroupCount = styled.span`
+  background: ${colors.accent.muted};
+  color: ${colors.accent.primary};
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-size: ${typography.size.xs};
+  font-weight: ${typography.weight.semibold};
 `;
 
 const TechGrid = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 0 ${spacing.xs};
+  padding: ${spacing.xs} 0;
+`;
+
+const TechBtn = styled.button<{ checked: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px ${spacing.xs};
+  border: 1px solid ${({ checked }) => checked ? colors.accent.primary : colors.border.default};
+  border-radius: 6px;
+  background: ${({ checked }) => checked ? colors.accent.muted : 'transparent'};
+  color: ${({ checked }) => checked ? colors.accent.primary : colors.text.secondary};
+  font-size: ${typography.size.sm};
+  cursor: pointer;
+  transition: all ${transitions.fast};
+  margin-bottom: 4px;
+  &:hover {
+    border-color: ${colors.accent.primary};
+    color: ${colors.accent.primary};
+    background: ${colors.accent.muted};
+  }
+  svg { width: 12px; height: 12px; }
 `;
 
 const SubTechBox = styled.div`
@@ -61,7 +99,6 @@ const SubTechBox = styled.div`
   border: 1px solid ${colors.border.default};
   border-radius: 8px;
   padding: ${spacing.sm};
-  margin-top: ${spacing.xs};
   display: flex;
   flex-direction: column;
   gap: ${spacing.xs};
@@ -73,19 +110,50 @@ const SubLabel = styled.span`
   color: ${colors.accent.primary};
 `;
 
+const SubTechGrid = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 ${spacing.xs};
+`;
+
 const AddRow = styled.div`
   display: flex;
   gap: ${spacing.xs};
   align-items: center;
 `;
 
+const GroupBody = styled.div`
+  padding: ${spacing.xs} ${spacing.sm} ${spacing.sm};
+  border: 1px solid ${colors.border.default};
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  margin-top: -1px;
+`;
+
+const SimilarText = styled.p`
+  color: ${colors.text.secondary};
+  font-size: ${typography.size.md};
+  line-height: 1.6;
+`;
+
+const SimilarName = styled.span`
+  color: ${colors.accent.primary};
+  font-weight: ${typography.weight.semibold};
+`;
+
 export default function TechSelector({ selected, onChange }: Props) {
   const { state, updateSchema } = useApp();
   const [search, setSearch] = useState('');
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // By default all groups are collapsed; open manually or when searching
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(GROUP_ORDER.map((g) => [g, true]))
+  );
   const [addingSub, setAddingSub] = useState<string | null>(null);
   const [newSub, setNewSub] = useState('');
+  const [addingTech, setAddingTech] = useState<string | null>(null);
+  const [newTech, setNewTech] = useState('');
   const [similarMatch, setSimilarMatch] = useState<{ input: string; match: string; techName: string } | null>(null);
+  const [similarTech, setSimilarTech] = useState<{ input: string; match: string; group: string } | null>(null);
 
   const grouped = useMemo(() => {
     const techsByGroup: Record<string, typeof state.schema.technologies> = {};
@@ -97,6 +165,16 @@ export default function TechSelector({ selected, onChange }: Props) {
     });
     return techsByGroup;
   }, [state.schema.technologies, search]);
+
+  // When search changes, auto-expand groups that have results
+  const effectiveCollapsed = useMemo(() => {
+    if (!search) return collapsed;
+    const result: Record<string, boolean> = {};
+    GROUP_ORDER.forEach((g) => {
+      result[g] = !(grouped[g]?.length > 0);
+    });
+    return result;
+  }, [search, grouped, collapsed]);
 
   const isSelected = (name: string) => selected.some((s) => s.tech === name);
 
@@ -120,6 +198,7 @@ export default function TechSelector({ selected, onChange }: Props) {
 
   const clearAll = () => onChange([]);
 
+  // Add sub-tech to existing tech
   const doAddSub = async (techName: string, name: string) => {
     const updatedTechs = state.schema.technologies.map((t) =>
       t.name === techName && !t.subTechs.includes(name)
@@ -146,22 +225,37 @@ export default function TechSelector({ selected, onChange }: Props) {
     doAddSub(techName, formatted);
   };
 
+  // Add new top-level tech to a group
+  const doAddTech = async (group: string, name: string) => {
+    if (state.schema.technologies.some((t) => t.name.toLowerCase() === name.toLowerCase())) return;
+    const updated = [...state.schema.technologies, { name, group, subTechs: [] }];
+    await updateSchema({ ...state.schema, technologies: updated });
+    onChange([...selected, { tech: name, subTechs: [] }]);
+    setNewTech('');
+    setAddingTech(null);
+  };
+
+  const handleAddTech = async (group: string) => {
+    const formatted = capitalize(newTech.trim());
+    if (!formatted) return;
+    if (state.schema.technologies.some((t) => t.name.toLowerCase() === formatted.toLowerCase())) return;
+    const techNames = state.schema.technologies.filter((t) => t.group === group).map((t) => t.name);
+    const similar = findSimilar(formatted, techNames);
+    if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
+      setSimilarTech({ input: formatted, match: similar, group });
+      return;
+    }
+    doAddTech(group, formatted);
+  };
+
   const toggleGroup = (g: string) => {
+    if (search) return; // can't manually toggle when searching
     setCollapsed((prev) => ({ ...prev, [g]: !prev[g] }));
   };
 
-  const SimilarText = styled.p`
-    color: ${colors.text.secondary};
-    font-size: ${typography.size.md};
-    line-height: 1.6;
-  `;
-  const SimilarName = styled.span`
-    color: ${colors.accent.primary};
-    font-weight: ${typography.weight.semibold};
-  `;
-
   return (
     <Section>
+      {/* Sub-tech similar match modal */}
       <Modal
         open={!!similarMatch}
         onClose={() => setSimilarMatch(null)}
@@ -170,9 +264,7 @@ export default function TechSelector({ selected, onChange }: Props) {
           <>
             <Button variant="ghost" onClick={() => {
               if (similarMatch) toggleSub(similarMatch.techName, similarMatch.match);
-              setSimilarMatch(null);
-              setNewSub('');
-              setAddingSub(null);
+              setSimilarMatch(null); setNewSub(''); setAddingSub(null);
             }}>
               Use "{similarMatch?.match}"
             </Button>
@@ -190,6 +282,36 @@ export default function TechSelector({ selected, onChange }: Props) {
           <br />Do you want to use the existing one or create a new one?
         </SimilarText>
       </Modal>
+
+      {/* New tech similar match modal */}
+      <Modal
+        open={!!similarTech}
+        onClose={() => setSimilarTech(null)}
+        title="Similar technology found"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => {
+              if (similarTech && !isSelected(similarTech.match)) toggleTech(similarTech.match);
+              setSimilarTech(null); setNewTech(''); setAddingTech(null);
+            }}>
+              Use "{similarTech?.match}"
+            </Button>
+            <Button onClick={() => {
+              if (similarTech) doAddTech(similarTech.group, similarTech.input);
+              setSimilarTech(null);
+            }}>
+              Create "{similarTech?.input}" anyway
+            </Button>
+          </>
+        }
+      >
+        <SimilarText>
+          You're adding <SimilarName>"{similarTech?.input}"</SimilarName>, but a similar technology already exists: <SimilarName>"{similarTech?.match}"</SimilarName>
+          <br />Do you want to use the existing one or create a new one?
+        </SimilarText>
+      </Modal>
+
+      {/* Search + Clear */}
       <TopRow>
         <SearchInput value={search} onChange={setSearch} placeholder="Search technologies..." />
         {selected.length > 0 && (
@@ -197,6 +319,7 @@ export default function TechSelector({ selected, onChange }: Props) {
         )}
       </TopRow>
 
+      {/* Selected chips */}
       {selected.length > 0 && (
         <ChipsRow>
           {selected.map((s) => (
@@ -205,28 +328,69 @@ export default function TechSelector({ selected, onChange }: Props) {
         </ChipsRow>
       )}
 
+      {/* Grouped tech list */}
       {GROUP_ORDER.map((group) => {
         const techs = grouped[group];
-        if (!techs?.length) return null;
-        const isCollapsed = collapsed[group];
+        const isCollapsed = effectiveCollapsed[group];
+        const selectedCount = techs?.filter((t) => isSelected(t.name)).length ?? 0;
 
         return (
           <div key={group}>
             <GroupHeader onClick={() => toggleGroup(group)} type="button">
-              {isCollapsed ? <ChevronRight /> : <ChevronDown />}
-              {GROUP_LABELS[group]}
+              <GroupHeaderLeft>
+                {isCollapsed ? <ChevronRight /> : <ChevronDown />}
+                {GROUP_LABELS[group] ?? group}
+                {selectedCount > 0 && <GroupCount>{selectedCount} selected</GroupCount>}
+              </GroupHeaderLeft>
+              {techs?.length !== undefined && (
+                <span style={{ fontSize: typography.size.xs, color: colors.text.tertiary }}>
+                  {techs.length} {search ? 'results' : 'items'}
+                </span>
+              )}
             </GroupHeader>
+
             {!isCollapsed && (
-              <TechGrid>
-                {techs.map((t) => (
-                  <Checkbox
-                    key={t.name}
-                    checked={isSelected(t.name)}
-                    onChange={() => toggleTech(t.name)}
-                    label={t.name}
-                  />
-                ))}
-              </TechGrid>
+              <GroupBody>
+                {(techs?.length ?? 0) === 0 ? (
+                  <span style={{ fontSize: typography.size.sm, color: colors.text.tertiary }}>No results</span>
+                ) : (
+                  <TechGrid>
+                    {techs!.map((t) => (
+                      <TechBtn
+                        key={t.name}
+                        checked={isSelected(t.name)}
+                        onClick={() => toggleTech(t.name)}
+                        type="button"
+                      >
+                        {isSelected(t.name) && <Check />}
+                        {t.name}
+                      </TechBtn>
+                    ))}
+                  </TechGrid>
+                )}
+
+                {/* Add tech to this group */}
+                {addingTech === group ? (
+                  <AddRow>
+                    <Input
+                      value={newTech}
+                      onChange={(e) => setNewTech(e.target.value)}
+                      placeholder={`Add technology to ${GROUP_LABELS[group] ?? group}...`}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddTech(group)}
+                      autoFocus
+                      style={{ flex: 1, height: '30px', fontSize: typography.size.sm }}
+                    />
+                    <Button size="sm" onClick={() => handleAddTech(group)} type="button">Add</Button>
+                    <Button variant="ghost" size="sm" onClick={() => { setAddingTech(null); setNewTech(''); }} type="button">
+                      <X />
+                    </Button>
+                  </AddRow>
+                ) : (
+                  <Button variant="ghost" size="sm" onClick={() => setAddingTech(group)} type="button" style={{ marginTop: spacing.xs }}>
+                    <Plus /> Add to {GROUP_LABELS[group] ?? group}
+                  </Button>
+                )}
+              </GroupBody>
             )}
           </div>
         );
@@ -241,16 +405,19 @@ export default function TechSelector({ selected, onChange }: Props) {
           <SubTechBox key={sel.tech}>
             <SubLabel>Sub-techs: {sel.tech}</SubLabel>
             {schemaTech.subTechs.length > 0 ? (
-              <TechGrid>
+              <SubTechGrid>
                 {schemaTech.subTechs.map((sub) => (
-                  <Checkbox
+                  <TechBtn
                     key={sub}
                     checked={sel.subTechs.includes(sub)}
-                    onChange={() => toggleSub(sel.tech, sub)}
-                    label={sub}
-                  />
+                    onClick={() => toggleSub(sel.tech, sub)}
+                    type="button"
+                  >
+                    {sel.subTechs.includes(sub) && <Check />}
+                    {sub}
+                  </TechBtn>
                 ))}
-              </TechGrid>
+              </SubTechGrid>
             ) : (
               <span style={{ fontSize: typography.size.sm, color: colors.text.tertiary }}>
                 No sub-technologies defined yet

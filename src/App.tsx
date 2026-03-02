@@ -6,6 +6,7 @@ import PageLayout from './layouts/PageLayout';
 import LogEntryPage from './pages/LogEntry/LogEntryPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import SchemaManagerPage from './pages/SchemaManager/SchemaManagerPage';
+import LogsPage from './pages/Logs/LogsPage';
 import { spacing } from './theme';
 
 function PageRouter() {
@@ -23,6 +24,7 @@ function PageRouter() {
 
   switch (state.currentPage) {
     case 'log': return <LogEntryPage />;
+    case 'logs': return <LogsPage />;
     case 'dashboard': return <DashboardPage />;
     case 'schema': return <SchemaManagerPage />;
     default: return <LogEntryPage />;

@@ -1,11 +1,12 @@
 import { useRef, useEffect, useState } from 'react';
 import styled from '@emotion/styled';
-import { X, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import type { TaskFormState, TechSelection } from '../../../utils/types';
 import { Card, CardHeader, CardTitle, Button, Input, TextArea, InputLabel, InputError, Toggle } from '../../../ui';
 import { colors, spacing, typography } from '../../../theme';
 import CategoryPicker from './CategoryPicker';
 import TechSelector from './TechSelector';
+import LanguagePicker from './LanguagePicker';
 
 interface Props {
   task: TaskFormState;
@@ -77,6 +78,14 @@ export default function TaskCard({ task, index, error, canRemove, onUpdate, onCl
         </FieldBlock>
 
         <FieldBlock>
+          <InputLabel>Coding Languages</InputLabel>
+          <LanguagePicker
+            selected={task.codingLanguages ?? []}
+            onChange={(langs) => onUpdate({ codingLanguages: langs })}
+          />
+        </FieldBlock>
+
+        <FieldBlock>
           <InputLabel>Technologies</InputLabel>
           <TechSelector
             selected={task.technologies}
@@ -92,6 +101,21 @@ export default function TaskCard({ task, index, error, canRemove, onUpdate, onCl
             onChange={(val) => onUpdate({ teamType: val as 'solo' | 'team' })}
           />
         </FieldBlock>
+
+        {task.teamType === 'team' && (
+          <FieldBlock>
+            <InputLabel>Team size</InputLabel>
+            <Input
+              type="number"
+              min={2}
+              max={500}
+              value={task.teamSize ?? ''}
+              onChange={(e) => onUpdate({ teamSize: e.target.value ? parseInt(e.target.value) : undefined })}
+              placeholder="Number of people..."
+              style={{ maxWidth: 160 }}
+            />
+          </FieldBlock>
+        )}
 
         <FieldBlock>
           <InputLabel>Description</InputLabel>
