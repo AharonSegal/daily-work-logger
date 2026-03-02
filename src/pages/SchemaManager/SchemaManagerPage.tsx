@@ -83,6 +83,17 @@ const SubTechRow = styled.div`
   margin-top: ${spacing.xs};
 `;
 
+const DuplicateAlert = styled.div`
+  margin-top: ${spacing.xs};
+  padding: ${spacing.xs} ${spacing.sm};
+  background: ${colors.warning.muted};
+  border: 1px solid ${colors.warning.primary};
+  border-radius: 8px;
+  color: ${colors.warning.text};
+  font-size: ${typography.size.sm};
+  font-weight: ${typography.weight.medium};
+`;
+
 const DangerZone = styled.div`
   border: 1px solid ${colors.danger.primary}40;
   border-radius: 12px;
@@ -110,10 +121,10 @@ export default function SchemaManagerPage() {
 
   const [confirmModal, setConfirmModal] = useState<{ type: string; name?: string } | null>(null);
   const [similarModal, setSimilarModal] = useState<{ type: 'project' | 'category' | 'tech' | 'subTech'; input: string; match: string; techName?: string } | null>(null);
+  const [dupAlert, setDupAlert] = useState('');
 
   // --- Projects ---
   const doAddProject = (name: string) => {
-    if (schema.projects.some((p) => p.toLowerCase() === name.toLowerCase())) return;
     updateSchema({ ...schema, projects: [...schema.projects, name] });
     setNewProject('');
     setAddingProject(false);
@@ -123,7 +134,9 @@ export default function SchemaManagerPage() {
   const addProject = () => {
     const formatted = capitalize(newProject.trim());
     if (!formatted) return;
-    if (schema.projects.some((p) => p.toLowerCase() === formatted.toLowerCase())) return;
+    const existing = schema.projects.find((p) => p.toLowerCase() === formatted.toLowerCase());
+    if (existing) { setDupAlert(`"${existing}" already exists`); return; }
+    setDupAlert('');
     const similar = findSimilar(formatted, schema.projects);
     if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
       setSimilarModal({ type: 'project', input: formatted, match: similar });
@@ -140,7 +153,6 @@ export default function SchemaManagerPage() {
 
   // --- Categories ---
   const doAddCategory = (name: string) => {
-    if (schema.categories.some((c) => c.toLowerCase() === name.toLowerCase())) return;
     updateSchema({ ...schema, categories: [...schema.categories, name] });
     setNewCat('');
     setAddingCat(false);
@@ -150,7 +162,9 @@ export default function SchemaManagerPage() {
   const addCategory = () => {
     const formatted = capitalize(newCat.trim());
     if (!formatted) return;
-    if (schema.categories.some((c) => c.toLowerCase() === formatted.toLowerCase())) return;
+    const existing = schema.categories.find((c) => c.toLowerCase() === formatted.toLowerCase());
+    if (existing) { setDupAlert(`"${existing}" already exists`); return; }
+    setDupAlert('');
     const similar = findSimilar(formatted, schema.categories);
     if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
       setSimilarModal({ type: 'category', input: formatted, match: similar });
@@ -167,7 +181,6 @@ export default function SchemaManagerPage() {
 
   // --- Technologies ---
   const doAddTech = (name: string) => {
-    if (schema.technologies.some((x) => x.name.toLowerCase() === name.toLowerCase())) return;
     updateSchema({ ...schema, technologies: [...schema.technologies, { name, group: newTechGroup, subTechs: [] }] });
     setNewTechName('');
     setAddingTech(false);
@@ -177,7 +190,9 @@ export default function SchemaManagerPage() {
   const addTech = () => {
     const formatted = capitalize(newTechName.trim());
     if (!formatted) return;
-    if (schema.technologies.some((x) => x.name.toLowerCase() === formatted.toLowerCase())) return;
+    const existing = schema.technologies.find((x) => x.name.toLowerCase() === formatted.toLowerCase());
+    if (existing) { setDupAlert(`"${existing.name}" already exists`); return; }
+    setDupAlert('');
     const techNames = schema.technologies.map((t) => t.name);
     const similar = findSimilar(formatted, techNames);
     if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
@@ -197,9 +212,7 @@ export default function SchemaManagerPage() {
     updateSchema({
       ...schema,
       technologies: schema.technologies.map((tech) =>
-        tech.name === techName && !tech.subTechs.some((s) => s.toLowerCase() === name.toLowerCase())
-          ? { ...tech, subTechs: [...tech.subTechs, name] }
-          : tech
+        tech.name === techName ? { ...tech, subTechs: [...tech.subTechs, name] } : tech
       ),
     });
     setNewSub('');
@@ -212,7 +225,9 @@ export default function SchemaManagerPage() {
     if (!formatted) return;
     const tech = schema.technologies.find((t) => t.name === techName);
     if (!tech) return;
-    if (tech.subTechs.some((s) => s.toLowerCase() === formatted.toLowerCase())) return;
+    const existing = tech.subTechs.find((s) => s.toLowerCase() === formatted.toLowerCase());
+    if (existing) { setDupAlert(`"${existing}" already exists`); return; }
+    setDupAlert('');
     const similar = findSimilar(formatted, tech.subTechs);
     if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
       setSimilarModal({ type: 'subTech', input: formatted, match: similar, techName });
@@ -340,10 +355,13 @@ export default function SchemaManagerPage() {
             </ListItem>
           ))}
           {addingProject && (
-            <AddRow>
-              <Input value={newProject} onChange={(e) => setNewProject(e.target.value)} placeholder="Project name..." onKeyDown={(e) => e.key === 'Enter' && addProject()} autoFocus style={{ flex: 1 }} />
-              <Button size="sm" onClick={addProject} type="button">Add</Button>
-            </AddRow>
+            <>
+              <AddRow>
+                <Input value={newProject} onChange={(e) => { setNewProject(e.target.value); setDupAlert(''); }} placeholder="Project name..." onKeyDown={(e) => e.key === 'Enter' && addProject()} autoFocus style={{ flex: 1 }} />
+                <Button size="sm" onClick={addProject} type="button">Add</Button>
+              </AddRow>
+              {dupAlert && <DuplicateAlert>{dupAlert}</DuplicateAlert>}
+            </>
           )}
         </Card>
       </Section>
@@ -364,10 +382,13 @@ export default function SchemaManagerPage() {
             </ListItem>
           ))}
           {addingCat && (
-            <AddRow>
-              <Input value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Category name..." onKeyDown={(e) => e.key === 'Enter' && addCategory()} autoFocus style={{ flex: 1 }} />
-              <Button size="sm" onClick={addCategory} type="button">Add</Button>
-            </AddRow>
+            <>
+              <AddRow>
+                <Input value={newCat} onChange={(e) => { setNewCat(e.target.value); setDupAlert(''); }} placeholder="Category name..." onKeyDown={(e) => e.key === 'Enter' && addCategory()} autoFocus style={{ flex: 1 }} />
+                <Button size="sm" onClick={addCategory} type="button">Add</Button>
+              </AddRow>
+              {dupAlert && <DuplicateAlert>{dupAlert}</DuplicateAlert>}
+            </>
           )}
         </Card>
       </Section>
@@ -404,10 +425,13 @@ export default function SchemaManagerPage() {
                       ))}
                     </SubTechRow>
                     {addingSubFor === tech.name ? (
-                      <AddRow>
-                        <Input value={newSub} onChange={(e) => setNewSub(e.target.value)} placeholder={`Add sub-tech for ${tech.name}...`} onKeyDown={(e) => e.key === 'Enter' && addSubTech(tech.name)} autoFocus style={{ flex: 1, height: '30px', fontSize: typography.size.sm }} />
-                        <Button size="sm" onClick={() => addSubTech(tech.name)} type="button">Add</Button>
-                      </AddRow>
+                      <>
+                        <AddRow>
+                          <Input value={newSub} onChange={(e) => { setNewSub(e.target.value); setDupAlert(''); }} placeholder={`Add sub-tech for ${tech.name}...`} onKeyDown={(e) => e.key === 'Enter' && addSubTech(tech.name)} autoFocus style={{ flex: 1, height: '30px', fontSize: typography.size.sm }} />
+                          <Button size="sm" onClick={() => addSubTech(tech.name)} type="button">Add</Button>
+                        </AddRow>
+                        {dupAlert && <DuplicateAlert>{dupAlert}</DuplicateAlert>}
+                      </>
                     ) : (
                       <Button variant="ghost" size="sm" onClick={() => setAddingSubFor(tech.name)} type="button" style={{ marginTop: spacing.xs }}>
                         <Plus /> Add sub-tech
@@ -420,21 +444,24 @@ export default function SchemaManagerPage() {
           })}
 
           {addingTech && (
-            <AddRow style={{ marginTop: spacing.md }}>
-              <Input value={newTechName} onChange={(e) => setNewTechName(e.target.value)} placeholder="Tech name..." autoFocus style={{ flex: 1 }} />
-              <select
-                value={newTechGroup}
-                onChange={(e) => setNewTechGroup(e.target.value)}
-                style={{
-                  background: colors.bg.secondary, border: `1px solid ${colors.border.default}`,
-                  borderRadius: '8px', color: colors.text.primary, padding: `${spacing.xs} ${spacing.sm}`,
-                  fontSize: typography.size.sm, height: '40px',
-                }}
-              >
-                {GROUP_ORDER.map((g) => <option key={g} value={g}>{GROUP_LABELS[g]}</option>)}
-              </select>
-              <Button size="sm" onClick={addTech} type="button">Add</Button>
-            </AddRow>
+            <>
+              <AddRow style={{ marginTop: spacing.md }}>
+                <Input value={newTechName} onChange={(e) => { setNewTechName(e.target.value); setDupAlert(''); }} placeholder="Tech name..." autoFocus style={{ flex: 1 }} />
+                <select
+                  value={newTechGroup}
+                  onChange={(e) => setNewTechGroup(e.target.value)}
+                  style={{
+                    background: colors.bg.secondary, border: `1px solid ${colors.border.default}`,
+                    borderRadius: '8px', color: colors.text.primary, padding: `${spacing.xs} ${spacing.sm}`,
+                    fontSize: typography.size.sm, height: '40px',
+                  }}
+                >
+                  {GROUP_ORDER.map((g) => <option key={g} value={g}>{GROUP_LABELS[g]}</option>)}
+                </select>
+                <Button size="sm" onClick={addTech} type="button">Add</Button>
+              </AddRow>
+              {dupAlert && <DuplicateAlert>{dupAlert}</DuplicateAlert>}
+            </>
           )}
         </Card>
       </Section>

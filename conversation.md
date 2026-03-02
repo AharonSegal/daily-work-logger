@@ -1,6 +1,20 @@
 # Session Log — Daily Work Logger
 
-## Session 2 changes
+---
+
+## Session 1
+
+- Initial project scaffold: React 18 + TypeScript + Vite + Emotion
+- Firebase Firestore integration with localStorage fallback
+- Core pages: Log Entry, Dashboard, Schema Manager
+- Duplicate prevention with `findSimilar` (Levenshtein distance)
+- Similar-item modal (use existing vs create anyway) in CategoryPicker and TechSelector
+- GitHub Pages deployment via GitHub Actions
+- Tech schema: languages, data_engineering, cloud_and_platforms groups
+
+---
+
+## Session 2
 
 ### New: "All Logs" page (`src/pages/Logs/LogsPage.tsx`)
 - Lists every saved entry with date, day#, project, title, tags, team info
@@ -21,14 +35,14 @@
 - Shown in Logs page entry row
 
 ### Updated: TechSelector (`src/pages/LogEntry/components/TechSelector.tsx`)
-- Groups collapsed by default — not an overwhelming list
+- Groups collapsed by default
 - Typing in search auto-expands matching groups
-- Tech items are styled buttons (highlighted when selected) instead of plain checkboxes
+- Tech items are styled buttons (check mark + highlight when selected)
 - Selected count badge on each group header
-- "Add to [Group]" button inside each group — adds a new top-level tech with duplicate/similarity check
+- "Add to [Group]" button inside each group — adds new top-level tech with duplicate/similarity check
 
 ### Updated: Tech schema (`src/utils/defaultSchema.ts`)
-6 new groups added (languages expanded too):
+6 new groups added:
 - `ui_frontend` — React, Vue, Angular, Svelte, Astro, Next.js, Tailwind, MUI, Shadcn, Three.js, D3, Vite, Storybook, Framer Motion, GSAP, WebGL, PWA, and more
 - `devops` — GitHub Actions, ArgoCD, Flux, Ansible, Terraform, Pulumi, Nginx, Vault, Consul, OpenTelemetry, Datadog, Sentry, Trivy, SonarQube, and more
 - `testing` — Jest, Vitest, Cypress, Playwright, Selenium, k6, Postman, Pact, MSW, Stryker, and more
@@ -50,3 +64,22 @@
 
 ### Updated: Nav (`src/layouts/PageLayout.tsx`)
 - 4 nav items: Log Entry | All Logs | Dashboard | Schema
+
+---
+
+## Session 3
+
+### Fixed: Duplicate item detection now shows feedback everywhere
+Previously, typing an exact duplicate (e.g. "devops" when it already exists) silently did nothing.
+
+**New behavior — exact duplicate:** shows an orange bordered alert box inline:
+> "devops" already exists
+
+**Existing behavior — similar (not exact):** still shows the modal asking "use existing or create anyway"
+
+**Files fixed:**
+- `src/pages/LogEntry/components/CategoryPicker.tsx` — categories
+- `src/pages/LogEntry/components/TechSelector.tsx` — add-to-group and sub-techs
+- `src/pages/SchemaManager/SchemaManagerPage.tsx` — projects, categories, technologies, sub-techs
+
+**Orange alert style:** `colors.warning.muted` background, `colors.warning.primary` (#f59e0b) border and text, 8px border-radius — shared `DuplicateAlert` styled component in each file. Alert clears automatically when the user edits the input field.

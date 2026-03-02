@@ -25,6 +25,17 @@ const AddRow = styled.div`
   margin-top: ${spacing.xs};
 `;
 
+const DuplicateAlert = styled.div`
+  margin-top: ${spacing.xs};
+  padding: ${spacing.xs} ${spacing.sm};
+  background: ${colors.warning.muted};
+  border: 1px solid ${colors.warning.primary};
+  border-radius: 8px;
+  color: ${colors.warning.text};
+  font-size: ${typography.size.sm};
+  font-weight: ${typography.weight.medium};
+`;
+
 const SimilarText = styled.p`
   color: ${colors.text.secondary};
   font-size: ${typography.size.md};
@@ -40,6 +51,7 @@ export default function CategoryPicker({ selected, onChange }: Props) {
   const { state, updateSchema } = useApp();
   const [adding, setAdding] = useState(false);
   const [newCat, setNewCat] = useState('');
+  const [dupAlert, setDupAlert] = useState('');
   const [similarMatch, setSimilarMatch] = useState<{ input: string; match: string } | null>(null);
 
   const toggle = (cat: string) => {
@@ -47,27 +59,33 @@ export default function CategoryPicker({ selected, onChange }: Props) {
   };
 
   const doAdd = async (name: string) => {
-    const formatted = capitalize(name.trim());
-    if (!formatted) return;
-    // Exact duplicate check (case-insensitive)
-    if (state.schema.categories.some((c) => c.toLowerCase() === formatted.toLowerCase())) return;
-    await updateSchema({ ...state.schema, categories: [...state.schema.categories, formatted] });
-    onChange([...selected, formatted]);
+    await updateSchema({ ...state.schema, categories: [...state.schema.categories, name] });
+    onChange([...selected, name]);
     setNewCat('');
+    setDupAlert('');
     setAdding(false);
   };
 
   const handleAdd = () => {
     const formatted = capitalize(newCat.trim());
     if (!formatted) return;
-    // Exact duplicate
-    if (state.schema.categories.some((c) => c.toLowerCase() === formatted.toLowerCase())) return;
-    // Similarity check
+
+    // Exact duplicate — show orange alert
+    const existing = state.schema.categories.find((c) => c.toLowerCase() === formatted.toLowerCase());
+    if (existing) {
+      setDupAlert(`"${existing}" already exists`);
+      return;
+    }
+
+    setDupAlert('');
+
+    // Similarity check — show modal
     const similar = findSimilar(formatted, state.schema.categories);
     if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
       setSimilarMatch({ input: formatted, match: similar });
       return;
     }
+
     doAdd(formatted);
   };
 
@@ -80,9 +98,7 @@ export default function CategoryPicker({ selected, onChange }: Props) {
         footer={
           <>
             <Button variant="ghost" onClick={() => {
-              if (similarMatch) {
-                onChange([...selected, similarMatch.match]);
-              }
+              if (similarMatch) onChange([...selected, similarMatch.match]);
               setSimilarMatch(null);
               setNewCat('');
               setAdding(false);
@@ -108,22 +124,26 @@ export default function CategoryPicker({ selected, onChange }: Props) {
         {state.schema.categories.map((cat) => (
           <Pill key={cat} label={cat} selected={selected.includes(cat)} onClick={() => toggle(cat)} />
         ))}
-        <Button variant="ghost" size="sm" onClick={() => setAdding(!adding)} type="button" iconOnly>
+        <Button variant="ghost" size="sm" onClick={() => { setAdding(!adding); setDupAlert(''); }} type="button" iconOnly>
           <Plus />
         </Button>
       </Wrap>
+
       {adding && (
-        <AddRow>
-          <Input
-            value={newCat}
-            onChange={(e) => setNewCat(e.target.value)}
-            placeholder="Category name..."
-            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-            autoFocus
-            style={{ flex: 1, height: '32px' }}
-          />
-          <Button size="sm" onClick={handleAdd} type="button">Add</Button>
-        </AddRow>
+        <>
+          <AddRow>
+            <Input
+              value={newCat}
+              onChange={(e) => { setNewCat(e.target.value); setDupAlert(''); }}
+              placeholder="Category name..."
+              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+              autoFocus
+              style={{ flex: 1, height: '32px' }}
+            />
+            <Button size="sm" onClick={handleAdd} type="button">Add</Button>
+          </AddRow>
+          {dupAlert && <DuplicateAlert>{dupAlert}</DuplicateAlert>}
+        </>
       )}
     </div>
   );

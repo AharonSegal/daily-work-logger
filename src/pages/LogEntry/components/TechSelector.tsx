@@ -130,6 +130,17 @@ const GroupBody = styled.div`
   margin-top: -1px;
 `;
 
+const DuplicateAlert = styled.div`
+  margin-top: ${spacing.xs};
+  padding: ${spacing.xs} ${spacing.sm};
+  background: ${colors.warning.muted};
+  border: 1px solid ${colors.warning.primary};
+  border-radius: 8px;
+  color: ${colors.warning.text};
+  font-size: ${typography.size.sm};
+  font-weight: ${typography.weight.medium};
+`;
+
 const SimilarText = styled.p`
   color: ${colors.text.secondary};
   font-size: ${typography.size.md};
@@ -150,8 +161,10 @@ export default function TechSelector({ selected, onChange }: Props) {
   );
   const [addingSub, setAddingSub] = useState<string | null>(null);
   const [newSub, setNewSub] = useState('');
+  const [dupSubAlert, setDupSubAlert] = useState('');
   const [addingTech, setAddingTech] = useState<string | null>(null);
   const [newTech, setNewTech] = useState('');
+  const [dupTechAlert, setDupTechAlert] = useState('');
   const [similarMatch, setSimilarMatch] = useState<{ input: string; match: string; techName: string } | null>(null);
   const [similarTech, setSimilarTech] = useState<{ input: string; match: string; group: string } | null>(null);
 
@@ -216,7 +229,12 @@ export default function TechSelector({ selected, onChange }: Props) {
     if (!formatted) return;
     const schemaTech = state.schema.technologies.find((t) => t.name === techName);
     if (!schemaTech) return;
-    if (schemaTech.subTechs.some((s) => s.toLowerCase() === formatted.toLowerCase())) return;
+    const existing = schemaTech.subTechs.find((s) => s.toLowerCase() === formatted.toLowerCase());
+    if (existing) {
+      setDupSubAlert(`"${existing}" already exists`);
+      return;
+    }
+    setDupSubAlert('');
     const similar = findSimilar(formatted, schemaTech.subTechs);
     if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
       setSimilarMatch({ input: formatted, match: similar, techName });
@@ -238,7 +256,12 @@ export default function TechSelector({ selected, onChange }: Props) {
   const handleAddTech = async (group: string) => {
     const formatted = capitalize(newTech.trim());
     if (!formatted) return;
-    if (state.schema.technologies.some((t) => t.name.toLowerCase() === formatted.toLowerCase())) return;
+    const existing = state.schema.technologies.find((t) => t.name.toLowerCase() === formatted.toLowerCase());
+    if (existing) {
+      setDupTechAlert(`"${existing.name}" already exists`);
+      return;
+    }
+    setDupTechAlert('');
     const techNames = state.schema.technologies.filter((t) => t.group === group).map((t) => t.name);
     const similar = findSimilar(formatted, techNames);
     if (similar && similar.toLowerCase() !== formatted.toLowerCase()) {
@@ -371,20 +394,23 @@ export default function TechSelector({ selected, onChange }: Props) {
 
                 {/* Add tech to this group */}
                 {addingTech === group ? (
-                  <AddRow>
-                    <Input
-                      value={newTech}
-                      onChange={(e) => setNewTech(e.target.value)}
-                      placeholder={`Add technology to ${GROUP_LABELS[group] ?? group}...`}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddTech(group)}
-                      autoFocus
-                      style={{ flex: 1, height: '30px', fontSize: typography.size.sm }}
-                    />
-                    <Button size="sm" onClick={() => handleAddTech(group)} type="button">Add</Button>
-                    <Button variant="ghost" size="sm" onClick={() => { setAddingTech(null); setNewTech(''); }} type="button">
-                      <X />
-                    </Button>
-                  </AddRow>
+                  <>
+                    <AddRow>
+                      <Input
+                        value={newTech}
+                        onChange={(e) => { setNewTech(e.target.value); setDupTechAlert(''); }}
+                        placeholder={`Add technology to ${GROUP_LABELS[group] ?? group}...`}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddTech(group)}
+                        autoFocus
+                        style={{ flex: 1, height: '30px', fontSize: typography.size.sm }}
+                      />
+                      <Button size="sm" onClick={() => handleAddTech(group)} type="button">Add</Button>
+                      <Button variant="ghost" size="sm" onClick={() => { setAddingTech(null); setNewTech(''); setDupTechAlert(''); }} type="button">
+                        <X />
+                      </Button>
+                    </AddRow>
+                    {dupTechAlert && <DuplicateAlert>{dupTechAlert}</DuplicateAlert>}
+                  </>
                 ) : (
                   <Button variant="ghost" size="sm" onClick={() => setAddingTech(group)} type="button" style={{ marginTop: spacing.xs }}>
                     <Plus /> Add to {GROUP_LABELS[group] ?? group}
@@ -424,20 +450,23 @@ export default function TechSelector({ selected, onChange }: Props) {
               </span>
             )}
             {addingSub === sel.tech ? (
-              <AddRow>
-                <Input
-                  value={newSub}
-                  onChange={(e) => setNewSub(e.target.value)}
-                  placeholder={`Add sub-tech for ${sel.tech}...`}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddSub(sel.tech)}
-                  autoFocus
-                  style={{ flex: 1, height: '30px', fontSize: typography.size.sm }}
-                />
-                <Button size="sm" onClick={() => handleAddSub(sel.tech)} type="button">Add</Button>
-                <Button variant="ghost" size="sm" onClick={() => { setAddingSub(null); setNewSub(''); }} type="button">
-                  <X />
-                </Button>
-              </AddRow>
+              <>
+                <AddRow>
+                  <Input
+                    value={newSub}
+                    onChange={(e) => { setNewSub(e.target.value); setDupSubAlert(''); }}
+                    placeholder={`Add sub-tech for ${sel.tech}...`}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddSub(sel.tech)}
+                    autoFocus
+                    style={{ flex: 1, height: '30px', fontSize: typography.size.sm }}
+                  />
+                  <Button size="sm" onClick={() => handleAddSub(sel.tech)} type="button">Add</Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setAddingSub(null); setNewSub(''); setDupSubAlert(''); }} type="button">
+                    <X />
+                  </Button>
+                </AddRow>
+                {dupSubAlert && <DuplicateAlert>{dupSubAlert}</DuplicateAlert>}
+              </>
             ) : (
               <Button variant="ghost" size="sm" onClick={() => setAddingSub(sel.tech)} type="button">
                 <Plus /> Add sub-tech
