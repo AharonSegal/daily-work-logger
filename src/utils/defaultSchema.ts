@@ -3,6 +3,7 @@ import type { Schema } from './types';
 const defaultSchema: Schema = {
   projects: ['Project Alpha', 'Project Beta', 'Internal Tools'],
   categories: ['bug fix', 'feature', 'meeting', 'research', 'code review', 'devops', 'documentation'],
+  projectInfos: {},
   technologies: [
     // ── Languages ──────────────────────────────────────────────────────
     { name: 'Python', group: 'languages', subTechs: ['Flask', 'Django', 'FastAPI', 'Pandas', 'NumPy', 'SQLAlchemy', 'Celery', 'Pytest', 'Pydantic', 'BeautifulSoup', 'Asyncio', 'Typer', 'Click', 'Httpx', 'Aiohttp'] },

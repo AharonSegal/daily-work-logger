@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import styled from '@emotion/styled';
-import { Plus, Trash2, AlertTriangle, Search } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, FileText, X, Check } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import useToast from '../../hooks/useToast';
 import defaultSchema, { GROUP_LABELS, GROUP_ORDER } from '../../utils/defaultSchema';
-import { Card, CardHeader, CardTitle, Button, Input, Chip, Modal, Toast, SearchInput, EmptyState } from '../../ui';
+import { Card, CardHeader, CardTitle, Button, Input, TextArea, InputLabel, Chip, Modal, Toast, SearchInput, Toggle } from '../../ui';
 import { colors, spacing, typography, transitions } from '../../theme';
 import { capitalize, findSimilar } from '../../utils/helpers';
+import type { ProjectInfo } from '../../utils/types';
 
 const Section = styled.div`
   margin-bottom: ${spacing.lg};
@@ -103,6 +104,62 @@ const DangerZone = styled.div`
   gap: ${spacing.sm};
 `;
 
+const PiFormField = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${spacing.xxs};
+`;
+
+const TechPickerWrap = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${spacing.xs};
+`;
+
+const TechPickerList = styled.div`
+  background: ${colors.bg.elevated};
+  border: 1px solid ${colors.border.default};
+  border-radius: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: ${spacing.xs};
+`;
+
+const TechPickerItem = styled.button<{ selected: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: ${spacing.xs};
+  width: 100%;
+  text-align: left;
+  padding: ${spacing.xs} ${spacing.sm};
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: ${typography.size.sm};
+  color: ${({ selected }) => selected ? colors.accent.primary : colors.text.primary};
+  background: ${({ selected }) => selected ? colors.accent.muted : 'transparent'};
+  font-weight: ${({ selected }) => selected ? typography.weight.medium : typography.weight.normal};
+  transition: background ${transitions.fast};
+  &:hover { background: ${({ selected }) => selected ? colors.accent.muted : colors.bg.hover}; }
+  svg { width: 13px; height: 13px; flex-shrink: 0; }
+`;
+
+const ChipsRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${spacing.xxs};
+`;
+
+const InfoBadge = styled.span`
+  font-size: ${typography.size.xs};
+  color: ${colors.accent.primary};
+  background: ${colors.accent.muted};
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-weight: ${typography.weight.medium};
+  margin-left: ${spacing.xs};
+`;
+
 export default function SchemaManagerPage() {
   const { state, updateSchema, clearData } = useApp();
   const { toasts, addToast, removeToast } = useToast();
@@ -122,6 +179,56 @@ export default function SchemaManagerPage() {
   const [confirmModal, setConfirmModal] = useState<{ type: string; name?: string } | null>(null);
   const [similarModal, setSimilarModal] = useState<{ type: 'project' | 'category' | 'tech' | 'subTech'; input: string; match: string; techName?: string } | null>(null);
   const [dupAlert, setDupAlert] = useState('');
+
+  // Project info form
+  const [projectInfoModal, setProjectInfoModal] = useState<string | null>(null);
+  const [piTitle, setPiTitle] = useState('');
+  const [piDescription, setPiDescription] = useState('');
+  const [piTechStack, setPiTechStack] = useState<string[]>([]);
+  const [piTeamType, setPiTeamType] = useState<'solo' | 'team'>('solo');
+  const [piTeamSize, setPiTeamSize] = useState<number | undefined>(undefined);
+  const [piTechSearch, setPiTechSearch] = useState('');
+
+  const openProjectInfo = (projectName: string) => {
+    const info = schema.projectInfos?.[projectName];
+    setPiTitle(info?.title ?? '');
+    setPiDescription(info?.description ?? '');
+    setPiTechStack(info?.techStack ?? []);
+    setPiTeamType(info?.teamType ?? 'solo');
+    setPiTeamSize(info?.teamSize);
+    setPiTechSearch('');
+    setProjectInfoModal(projectName);
+  };
+
+  const saveProjectInfo = () => {
+    if (!projectInfoModal) return;
+    updateSchema({
+      ...schema,
+      projectInfos: {
+        ...(schema.projectInfos ?? {}),
+        [projectInfoModal]: {
+          title: piTitle.trim(),
+          description: piDescription.trim(),
+          techStack: piTechStack,
+          teamType: piTeamType,
+          teamSize: piTeamType === 'team' ? piTeamSize : undefined,
+        } as ProjectInfo,
+      },
+    });
+    addToast('success', `Project info saved for "${projectInfoModal}"`);
+    setProjectInfoModal(null);
+  };
+
+  const allTechNames = schema.technologies.map((t) => t.name).sort();
+  const filteredPiTechs = piTechSearch
+    ? allTechNames.filter((n) => n.toLowerCase().includes(piTechSearch.toLowerCase()))
+    : allTechNames;
+
+  const togglePiTech = (name: string) => {
+    setPiTechStack((prev) =>
+      prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]
+    );
+  };
 
   // --- Projects ---
   const doAddProject = (name: string) => {
@@ -265,6 +372,90 @@ export default function SchemaManagerPage() {
     <div>
       <Toast toasts={toasts} removeToast={removeToast} />
 
+      {/* Project Info Modal */}
+      <Modal
+        open={!!projectInfoModal}
+        onClose={() => setProjectInfoModal(null)}
+        title={`Project info — ${projectInfoModal}`}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+          <PiFormField>
+            <InputLabel>Title</InputLabel>
+            <Input
+              value={piTitle}
+              onChange={(e) => setPiTitle(e.target.value)}
+              placeholder="Short project title..."
+            />
+          </PiFormField>
+
+          <PiFormField>
+            <InputLabel>Tech stack</InputLabel>
+            <TechPickerWrap>
+              {piTechStack.length > 0 && (
+                <ChipsRow>
+                  {piTechStack.map((t) => (
+                    <Chip key={t} label={t} onRemove={() => togglePiTech(t)} />
+                  ))}
+                </ChipsRow>
+              )}
+              <SearchInput value={piTechSearch} onChange={setPiTechSearch} placeholder="Search all technologies..." />
+              <TechPickerList>
+                {filteredPiTechs.map((name) => (
+                  <TechPickerItem
+                    key={name}
+                    selected={piTechStack.includes(name)}
+                    onClick={() => togglePiTech(name)}
+                    type="button"
+                  >
+                    {piTechStack.includes(name) && <Check />}
+                    {name}
+                  </TechPickerItem>
+                ))}
+              </TechPickerList>
+            </TechPickerWrap>
+          </PiFormField>
+
+          <PiFormField>
+            <InputLabel>Team</InputLabel>
+            <Toggle
+              options={[{ value: 'solo', label: 'Solo' }, { value: 'team', label: 'Team' }]}
+              value={piTeamType}
+              onChange={(val) => setPiTeamType(val as 'solo' | 'team')}
+            />
+          </PiFormField>
+
+          {piTeamType === 'team' && (
+            <PiFormField>
+              <InputLabel>Team size</InputLabel>
+              <Input
+                type="number"
+                min={2}
+                max={500}
+                value={piTeamSize ?? ''}
+                onChange={(e) => setPiTeamSize(e.target.value ? parseInt(e.target.value) : undefined)}
+                placeholder="Number of people..."
+                style={{ maxWidth: 160 }}
+              />
+            </PiFormField>
+          )}
+
+          <PiFormField>
+            <InputLabel>Description</InputLabel>
+            <TextArea
+              value={piDescription}
+              onChange={(e) => setPiDescription(e.target.value)}
+              placeholder="Short summary of the project..."
+              rows={3}
+            />
+          </PiFormField>
+
+          <div style={{ display: 'flex', gap: spacing.sm, justifyContent: 'flex-end', paddingTop: spacing.xs }}>
+            <Button variant="ghost" onClick={() => setProjectInfoModal(null)} type="button">Cancel</Button>
+            <Button onClick={saveProjectInfo} type="button">Save</Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Confirm Modal */}
       <Modal
         open={!!confirmModal}
@@ -350,8 +541,18 @@ export default function SchemaManagerPage() {
           </CardHeader>
           {schema.projects.map((p) => (
             <ListItem key={p}>
-              <ItemLabel>{p}</ItemLabel>
-              <RemBtn onClick={() => setConfirmModal({ type: 'project', name: p })} type="button"><Trash2 /></RemBtn>
+              <ItemLabel>
+                {p}
+                {schema.projectInfos?.[p]?.title && (
+                  <InfoBadge>{schema.projectInfos[p].title}</InfoBadge>
+                )}
+              </ItemLabel>
+              <div style={{ display: 'flex', gap: spacing.xxs }}>
+                <RemBtn onClick={() => openProjectInfo(p)} type="button" title="Edit project info" style={{ color: colors.accent.primary }}>
+                  <FileText />
+                </RemBtn>
+                <RemBtn onClick={() => setConfirmModal({ type: 'project', name: p })} type="button"><Trash2 /></RemBtn>
+              </div>
             </ListItem>
           ))}
           {addingProject && (

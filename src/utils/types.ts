@@ -24,10 +24,19 @@ export interface SchemaTech {
   subTechs: string[];
 }
 
+export interface ProjectInfo {
+  title: string;
+  description: string;
+  techStack: string[];
+  teamType: 'solo' | 'team';
+  teamSize?: number;
+}
+
 export interface Schema {
   projects: string[];
   categories: string[];
   technologies: SchemaTech[];
+  projectInfos?: Record<string, ProjectInfo>;
 }
 
 export interface Preferences {
